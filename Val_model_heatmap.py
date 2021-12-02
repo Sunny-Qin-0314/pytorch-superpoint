@@ -95,6 +95,7 @@ class Val_model_heatmap(SuperPointFrontend_torch):
         from utils.var_dim import toNumpy
         train_agent = Train_model_heatmap
 
+        self.net.eval()
         with torch.no_grad():
             outs = self.net(images)
         semi = outs['semi']

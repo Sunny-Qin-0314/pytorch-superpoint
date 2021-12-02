@@ -10,7 +10,10 @@ data:
 front_end_model: 'Val_model_heatmap'  # 'Train_model_frontend'
 model:
     # name: 'magic_point'
-    name: 'SuperPointNet_gauss2' # SuperPointNet_heatmap
+    # name: 'SuperPointNet_gauss2' # SuperPointNet_heatmap
+    # name: 'SuperPointNet_mobilenet' # SuperPointNet_heatmap
+    name: 'SuperPointNet_resnet18'
+
     params: {
     }
 
@@ -35,8 +38,10 @@ model:
         sigma: 0.2
     # pretrained: 'logs/superpoint_kitti_heat2_0/checkpoints/superPointNet_50000_checkpoint.pth.tar'
     # pretrained: 'logs/superpoint_spollo_v0/checkpoints/superPointNet_40000_checkpoint.pth.tar'
-    # pretrained: 'logs/superpoint_coco/checkpoints/superPointNet_180_checkpoint.pth.tar'
-    pretrained: 'logs/superpoint_coco_heat2_0/checkpoints/superPointNet_170000_checkpoint.pth.tar'
+    # pretrained: 'logs/superpoint_coco/checkpoints/superPointNet_150000_checkpoint.pth.tar'
+    # pretrained: 'logs/superpoint_coco_mobilenet_v2/checkpoints/superPointNet_150000_checkpoint.pth.tar'
+    pretrained: 'logs/superpoint_coco_resnet18/checkpoints/superPointNet_150000_checkpoint.pth.tar'
+    # pretrained: 'logs/superpoint_coco_heat2_0/checkpoints/superPointNet_170000_checkpoint.pth.tar'
 
 
 

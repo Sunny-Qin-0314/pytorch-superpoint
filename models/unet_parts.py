@@ -2,23 +2,131 @@
 """
 # sub-parts of the U-Net model
 
+from typing_extensions import TypeGuard
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
+class InvertedResidual(nn.Module):
+    def __init__(self, inp, oup, stride, expand_ratio, use_batch_norm=True, onnx_compatible=False):
+        super(InvertedResidual, self).__init__()
+        ReLU = nn.ReLU if onnx_compatible else nn.ReLU6
+
+        self.stride = stride
+        assert stride in [1, 2]
+
+        hidden_dim = round(inp * expand_ratio)
+        self.use_res_connect = self.stride == 1 and inp == oup
+
+        if expand_ratio == 1:
+            if use_batch_norm:
+                self.conv = nn.Sequential(
+                    # dw
+                    nn.Conv2d(hidden_dim, hidden_dim, 3, stride, 1, groups=hidden_dim, bias=False),
+                    nn.BatchNorm2d(hidden_dim),
+                    ReLU(inplace=True),
+                    # pw-linear
+                    nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+                    nn.BatchNorm2d(oup),
+                )
+            else:
+                self.conv = nn.Sequential(
+                    # dw
+                    nn.Conv2d(hidden_dim, hidden_dim, 3, stride, 1, groups=hidden_dim, bias=False),
+                    ReLU(inplace=True),
+                    # pw-linear
+                    nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+                )
+        else:
+            if use_batch_norm:
+                self.conv = nn.Sequential(
+                    # pw
+                    nn.Conv2d(inp, hidden_dim, 1, 1, 0, bias=False),
+                    nn.BatchNorm2d(hidden_dim),
+                    ReLU(inplace=True),
+                    # dw
+                    nn.Conv2d(hidden_dim, hidden_dim, 3, stride, 1, groups=hidden_dim, bias=False),
+                    nn.BatchNorm2d(hidden_dim),
+                    ReLU(inplace=True),
+                    # pw-linear
+                    nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+                    nn.BatchNorm2d(oup),
+                )
+            else:
+                self.conv = nn.Sequential(
+                    # pw
+                    nn.Conv2d(inp, hidden_dim, 1, 1, 0, bias=False),
+                    ReLU(inplace=True),
+                    # dw
+                    nn.Conv2d(hidden_dim, hidden_dim, 3, stride, 1, groups=hidden_dim, bias=False),
+                    ReLU(inplace=True),
+                    # pw-linear
+                    nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+                )
+
+    def forward(self, x):
+        if self.use_res_connect:
+            return x + self.conv(x)
+        else:
+            return self.conv(x)
+
+
+
+class double_conv_mobilenet(nn.Module):
+    '''(conv => BN => ReLU) * 2'''
+    def __init__(self, in_ch, out_ch, expand_ratio):
+        super(double_conv_mobilenet, self).__init__()
+
+        # Mobilenet v2
+        self.conv = nn.Sequential(
+            InvertedResidual(in_ch, out_ch, 1, expand_ratio=expand_ratio, use_batch_norm=True, onnx_compatible=True),
+            nn.ReLU(inplace=True),
+            InvertedResidual(out_ch, out_ch, 1, expand_ratio=expand_ratio, use_batch_norm=True, onnx_compatible=True),
+            nn.ReLU(inplace=True)
+        )
+
+
+    def forward(self, x):
+        x = self.conv(x)
+        return x
 
 
 class double_conv(nn.Module):
     '''(conv => BN => ReLU) * 2'''
     def __init__(self, in_ch, out_ch):
         super(double_conv, self).__init__()
+
+        def conv_dw(inp, oup, stride):
+            return nn.Sequential(
+                nn.Conv2d(inp, inp, 3, stride, 1, groups=inp, bias=False),
+                nn.BatchNorm2d(inp),
+                nn.ReLU(inplace=True),
+
+                nn.Conv2d(inp, oup, 1, 1, 0, bias=False),
+                nn.BatchNorm2d(oup),
+                nn.ReLU(inplace=True),
+            )
+
+        # self.conv = nn.Sequential(
+        #     nn.Conv2d(in_ch, out_ch, 3, padding=1),
+        #     nn.BatchNorm2d(out_ch),
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(out_ch, out_ch, 3, padding=1),
+        #     nn.BatchNorm2d(out_ch),
+        #     nn.ReLU(inplace=True)
+        # )
+
+        # Mobilenet v1
         self.conv = nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True)
+            conv_dw(in_ch, out_ch, 1),
+            # nn.BatchNorm2d(out_ch),
+            # nn.ReLU(inplace=True),
+            conv_dw(out_ch, out_ch, 1),
+            # nn.BatchNorm2d(out_ch),
+            # nn.ReLU(inplace=True)
         )
+
 
     def forward(self, x):
         x = self.conv(x)

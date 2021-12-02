@@ -188,6 +188,8 @@ class Train_model_frontend(object):
         params = self.config["model"]["params"]
         print("model: ", model)
         net = modelLoader(model=model, **params).to(self.device)
+        print("net: ", net)
+
         logging.info("=> setting adam solver")
         optimizer = self.adamOptim(net, lr=self.config["model"]["learning_rate"])
 
